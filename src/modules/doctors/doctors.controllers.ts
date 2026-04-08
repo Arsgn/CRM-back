@@ -1,25 +1,21 @@
 import { Response } from "express";
 import prisma from "../../prisma";
 import { CustomRequest } from "../../middleware/auth.middleware";
-import bcrypt from "bcrypt";
 
 const getAll = async (req: CustomRequest, res: Response): Promise<void> => {
   try {
-    const doctors = await prisma.user.findMany({
-      where: { role: "DOCTOR", deletedAt: null },
-      include: { doctorProfile: true },
-    });
+    const doctors = await prisma.doctor.findMany();
+
     res.status(200).json({ success: true, data: doctors });
   } catch (error) {
-    res.status(500).json({ success: false, error: `Error in getAll: ${error}` });
+    res.status(500).json({ success: false, error });
   }
 };
 
 const getOne = async (req: CustomRequest, res: Response): Promise<void> => {
   try {
-    const doctor = await prisma.user.findFirst({
-      where: { id: Number(req.params.id), role: "DOCTOR", deletedAt: null },
-      include: { doctorProfile: true },
+    const doctor = await prisma.doctor.findUnique({
+      where: { id: Number(req.params.id) },
     });
 
     if (!doctor) {
@@ -29,86 +25,83 @@ const getOne = async (req: CustomRequest, res: Response): Promise<void> => {
 
     res.status(200).json({ success: true, data: doctor });
   } catch (error) {
-    res.status(500).json({ success: false, error: `Error in getOne: ${error}` });
+    res.status(500).json({ success: false, error });
   }
 };
 
-const create = async (req: CustomRequest, res: Response): Promise<void> => {
+const create = async (req: CustomRequest, res: Response) => {
   try {
-    const { email, password, name, phone, speciality, cabinet, experience } = req.body;
+    const { name, phone, speciality, cabinet, experience } = req.body;
 
-    if (!email || !password || !speciality) {
-      res.status(400).json({ success: false, message: "Email, пароль и специальность обязательны" });
-      return;
+    if (!name || !speciality) {
+      return res.status(400).json({
+        success: false,
+        message: "Имя и специальность обязательны",
+      });
     }
 
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) {
-      res.status(400).json({ success: false, message: "Email уже занят" });
-      return;
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const doctor = await prisma.user.create({
+    const doctor = await prisma.doctor.create({
       data: {
-        email,
-        password: hashedPassword,
         name,
         phone,
-        role: "DOCTOR",
-        doctorProfile: { create: { speciality, cabinet, experience: Number(experience) } },
+        speciality,
+        cabinet,
+        experience: experience ? Number(experience) : null,
       },
-      include: { doctorProfile: true },
     });
 
     res.status(201).json({ success: true, data: doctor });
   } catch (error) {
-    res.status(500).json({ success: false, error: `Error in create: ${error}` });
+    res.status(500).json({ success: false, error });
   }
 };
 
 const update = async (req: CustomRequest, res: Response): Promise<void> => {
   try {
-    const exists = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
+    const id = Number(req.params.id);
+
+    const exists = await prisma.doctor.findUnique({ where: { id } });
     if (!exists) {
       res.status(404).json({ success: false, message: "Врач не найден" });
       return;
     }
 
-    const { speciality, cabinet, experience, ...userData } = req.body;
-    const doctor = await prisma.user.update({
-      where: { id: Number(req.params.id) },
+    const { name, phone, speciality, cabinet, experience } = req.body;
+
+    const doctor = await prisma.doctor.update({
+      where: { id },
       data: {
-        ...userData,
-        ...(speciality || cabinet || experience
-          ? { doctorProfile: { update: { speciality, cabinet, experience: Number(experience) } } }
-          : {}),
+        name,
+        phone,
+        speciality,
+        cabinet,
+        experience: experience ? Number(experience) : null,
       },
-      include: { doctorProfile: true },
     });
 
     res.status(200).json({ success: true, data: doctor });
   } catch (error) {
-    res.status(500).json({ success: false, error: `Error in update: ${error}` });
+    res.status(500).json({ success: false, error });
   }
 };
 
 const remove = async (req: CustomRequest, res: Response): Promise<void> => {
   try {
-    const exists = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
+    const id = Number(req.params.id);
+
+    const exists = await prisma.doctor.findUnique({ where: { id } });
     if (!exists) {
       res.status(404).json({ success: false, message: "Врач не найден" });
       return;
     }
 
-    await prisma.user.update({
-      where: { id: Number(req.params.id) },
-      data: { deletedAt: new Date() },
+    await prisma.doctor.delete({
+      where: { id },
     });
 
-    res.status(200).json({ success: true, message: "Врач успешно удалён" });
+    res.status(200).json({ success: true, message: "Удалено" });
   } catch (error) {
-    res.status(500).json({ success: false, error: `Error in remove: ${error}` });
+    res.status(500).json({ success: false, error });
   }
 };
 

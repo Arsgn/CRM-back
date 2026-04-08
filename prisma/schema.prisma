@@ -5,9 +5,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // url = env("DATABASE_URL")
 }
-
-// ─── ENUMS ───────────────────────────────────────────────
 
 enum UserRole {
   ADMIN
@@ -21,9 +20,9 @@ enum PaymentMethod {
 }
 
 enum AppointmentStatus {
-  WAITING     // Живая очередь
-  SCHEDULED   // Запись
-  CANCELLED   // Отменена
+  WAITING
+  SCHEDULED
+  CANCELLED
 }
 
 enum PaymentStatus {
@@ -32,8 +31,6 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
-
-// ─── USER (врачи, администраторы, регистраторы) ──────────
 
 model User {
   id        Int       @id @default(autoincrement())
@@ -47,28 +44,25 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  // Если роль DOCTOR
-  doctorProfile DoctorProfile?
-  appointments  Appointment[]  @relation("DoctorAppointments")
-  schedules     Schedule[]
-
   @@map("users")
 }
 
-// ─── DOCTOR PROFILE ──────────────────────────────────────
-
-model DoctorProfile {
-  id         Int    @id @default(autoincrement())
-  userId     Int    @unique
-  user       User   @relation(fields: [userId], references: [id])
-  speciality String // Кардиолог, Невролог и т.д.
+model Doctor {
+  id         Int     @id @default(autoincrement())
+  name       String
+  phone      String?
+  speciality String
   cabinet    String?
-  experience Int?   // лет опыта
+  experience Int?
 
-  @@map("doctor_profiles")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  appointments Appointment[]
+  schedules    Schedule[]
+
+  @@map("doctors")
 }
-
-// ─── PATIENT (клиент) ────────────────────────────────────
 
 model Patient {
   id          Int       @id @default(autoincrement())
@@ -85,11 +79,9 @@ model Patient {
   @@map("patients")
 }
 
-// ─── CATEGORY (отделение) ────────────────────────────────
-
 model Category {
   id        Int       @id @default(autoincrement())
-  name      String    @unique  // Кардиология, Терапия, Неврология...
+  name      String    @unique
   createdAt DateTime  @default(now())
 
   services  Service[]
@@ -97,11 +89,9 @@ model Category {
   @@map("categories")
 }
 
-// ─── PRICE LIST (прайс лист) ─────────────────────────────
-
 model Service {
   id         Int      @id @default(autoincrement())
-  name       String               // Первичный приём, Консультация...
+  name       String
   price      Float
   categoryId Int
   category   Category @relation(fields: [categoryId], references: [id])
@@ -111,22 +101,24 @@ model Service {
   appointmentServices AppointmentService[]
 
   @@map("services")
+  @@unique([name, categoryId])
 }
-
-// ─── APPOINTMENT (запись клиента) ────────────────────────
 
 model Appointment {
   id        Int               @id @default(autoincrement())
   patientId Int
   patient   Patient           @relation(fields: [patientId], references: [id])
+
   doctorId  Int
-  doctor    User              @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  doctor    Doctor            @relation(fields: [doctorId], references: [id])
+
   date      DateTime
-  timeStart String            // "10:00"
-  timeEnd   String            // "11:00"
+  timeStart String
+  timeEnd   String
   status    AppointmentStatus @default(SCHEDULED)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   payment             Payment?
   appointmentServices AppointmentService[]
@@ -134,24 +126,22 @@ model Appointment {
   @@map("appointments")
 }
 
-// ─── APPOINTMENT <-> SERVICE (many-to-many) ───────────────
-
 model AppointmentService {
   id            Int         @id @default(autoincrement())
   appointmentId Int
   appointment   Appointment @relation(fields: [appointmentId], references: [id])
+
   serviceId     Int
   service       Service     @relation(fields: [serviceId], references: [id])
 
   @@map("appointment_services")
 }
 
-// ─── PAYMENT (оплата) ────────────────────────────────────
-
 model Payment {
   id            Int           @id @default(autoincrement())
   appointmentId Int           @unique
   appointment   Appointment   @relation(fields: [appointmentId], references: [id])
+
   amount        Float
   method        PaymentMethod @default(CASH)
   status        PaymentStatus @default(PENDING)
@@ -161,21 +151,20 @@ model Payment {
   @@map("payments")
 }
 
-// ─── SCHEDULE (календарь врача) ──────────────────────────
-
 model Schedule {
   id        Int      @id @default(autoincrement())
+
   doctorId  Int
-  doctor    User     @relation(fields: [doctorId], references: [id])
-  dayOfWeek Int      // 0=Пн, 1=Вт ... 6=Вс
-  timeStart String   // "08:00"
-  timeEnd   String   // "18:00"
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+
+  dayOfWeek Int
+  timeStart String
+  timeEnd   String
+
   createdAt DateTime @default(now())
 
   @@map("schedules")
 }
-
-// ─── ANALYTICS (сводная аналитика по дням) ───────────────
 
 model AnalyticsSnapshot {
   id             Int      @id @default(autoincrement())

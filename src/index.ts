@@ -9,7 +9,7 @@ const server = buildServer();
 
 const start = async () => {
   try {
-    const PORT = Number(process.env.PORT) || 5001;
+    const PORT = Number(process.env.PORT) || 5002;
 
     server.listen({
       port: PORT,
