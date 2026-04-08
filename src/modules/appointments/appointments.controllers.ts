@@ -56,7 +56,7 @@ const getOne = async (req: CustomRequest, res: Response): Promise<void> => {
       where: { id: Number(req.params.id) },
       include: {
         patient: true,
-        doctor: true, 
+        doctor: true,
         appointmentServices: {
           include: {
             service: {
@@ -106,7 +106,7 @@ const create = async (req: CustomRequest, res: Response): Promise<void> => {
       return;
     }
 
-    const doctor = await prisma.user.findUnique({
+    const doctor = await prisma.doctor.findUnique({
       where: { id: Number(doctorId) },
     });
     if (!doctor) {
